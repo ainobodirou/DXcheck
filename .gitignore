@@ -1,0 +1,29 @@
+# Python bytecode and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+/venv/
+
+# Build, test, and coverage output
+/build/
+/dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+/htmlcov/
+
+# Local SBOM output
+/sbom-output/
+
+# Local environment variables and GitHub App private keys
+.env
+.env.*
+!.env.example
+*.private-key.pem
+
+# macOS metadata
+.DS_Store
