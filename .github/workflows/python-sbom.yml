@@ -1,0 +1,63 @@
+name: Generate Python SBOMs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-sboms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Export requirements for both revisions
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          merge_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+          printf 'Comparing %s to %s\n' "$merge_base" "$HEAD_SHA"
+
+          mkdir -p "$RUNNER_TEMP/sbom-output"
+          git show "${merge_base}:requirements.txt" > "$RUNNER_TEMP/sbom-output/base-requirements.txt"
+          git show "${HEAD_SHA}:requirements.txt" > "$RUNNER_TEMP/sbom-output/head-requirements.txt"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Generate base and head SBOMs
+        shell: bash
+        working-directory: ${{ runner.temp }}/sbom-output
+        run: |
+          python -m venv .venv-tools
+          .venv-tools/bin/python -m pip install 'pip>=22.3' 'cyclonedx-bom==9.0.0'
+
+          python -m venv --without-pip .venv-base
+          python -m venv --without-pip .venv-head
+          .venv-tools/bin/python -m pip --python .venv-base install -r base-requirements.txt
+          .venv-tools/bin/python -m pip --python .venv-head install -r head-requirements.txt
+
+          .venv-tools/bin/cyclonedx-py environment .venv-base/bin/python \
+            --output-format JSON --output-file base.json
+          .venv-tools/bin/cyclonedx-py environment .venv-head/bin/python \
+            --output-format JSON --output-file head.json
+
+      - name: Upload the SBOM pair
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-sboms
+          path: |
+            ${{ runner.temp }}/sbom-output/base.json
+            ${{ runner.temp }}/sbom-output/head.json
+          if-no-files-found: error
+          overwrite: true
