@@ -3,6 +3,46 @@ from pydantic import BaseModel,Field
 from enum import Enum
 from uuid import uuid4, UUID
 
+## Dependancy Graph
+@dataclass
+class Component:
+    bom_ref: str
+    purl: str
+    name: str
+    version: str
+
+@dataclass
+class DependencyGraph:
+    nodes: dict[str, Component]
+    edges: set[tuple[str,str]]
+
+## Dependancy Graph changes
+class ChangeType(str, Enum):
+    ADDED = "added"
+    REMOVED = "removed"
+    UPDATED = "updated"
+
+
+@dataclass(frozen=True)
+class NodeChanges:
+    name: str
+    purl: str
+    change_type: ChangeType
+    previous_version: str | None = None
+    new_version: str | None = None
+
+@dataclass(frozen=True)
+class EdgeChanges:
+    source: str
+    target: str
+    change_type: ChangeType
+
+@dataclass
+class GraphDiff:
+    node_changes: list[NodeChanges] | None = None
+    edge_changes: list[EdgeChanges] | None = None
+
+## SBOM Review Jobs and Job records for store
 class Status(Enum):
 
     QUEUED = "queued"
